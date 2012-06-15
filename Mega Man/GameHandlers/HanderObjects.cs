@@ -80,7 +80,7 @@ namespace MegaMan.Engine
 
         public void Draw(GameGraphicsLayers layers, Color opacity)
         {
-            sprite.DrawXna(layers.SpritesBatch[sprite.Layer], opacity, x, y);
+            sprite.Draw(layers.SpritesBatch[sprite.Layer], opacity, x, y);
         }
     }
 

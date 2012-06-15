@@ -118,7 +118,7 @@ namespace MegaMan.Common
             {
                 int id = int.Parse(tileNode.Attribute("id").Value);
                 string name = tileNode.Attribute("name").Value;
-                var sprite = Sprite.Empty;
+                Sprite sprite = null;
 
                 var spriteNode = tileNode.Element("Sprite");
                 if (spriteNode != null) 

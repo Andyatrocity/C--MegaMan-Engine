@@ -248,7 +248,7 @@ namespace MegaMan.Engine
             if (currentSprite != null && Visible)
             {
                 currentSprite.VerticalFlip = Parent.GravityFlip ? Game.CurrentGame.GravityFlip : verticalFlip;
-                currentSprite.DrawXna(batch, color, (float)Math.Round(PositionSrc.Position.X - off_x), (float)Math.Round(PositionSrc.Position.Y - off_y));
+                currentSprite.Draw(batch, color, (float)Math.Round(PositionSrc.Position.X - off_x), (float)Math.Round(PositionSrc.Position.Y - off_y));
             }
         }
     }

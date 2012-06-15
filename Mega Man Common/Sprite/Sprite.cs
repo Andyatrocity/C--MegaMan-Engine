@@ -11,28 +11,21 @@ using Microsoft.Xna.Framework.Graphics;
 using DrawPoint     = System.Drawing.Point;
 using DrawRectangle = System.Drawing.Rectangle;
 
-using XnaRectangle  = Microsoft.Xna.Framework.Rectangle;
-using XnaColor      = Microsoft.Xna.Framework.Color;
-
 namespace MegaMan.Common
 {
     /// <summary>
     /// Represents a 2D rectangular image sprite, which can be animated.
     /// </summary>
-    public class Sprite : ICollection<SpriteFrame>
+    public abstract class Sprite : ICollection<SpriteFrame>
     {
-        private List<SpriteFrame> frames;
-        private int currentFrame;
-        private int lastFrameTime;
-        private FilePath sheetPath;
-
-        // XNA stuff
-        private Texture2D texture;
+        protected List<SpriteFrame> frames;
+        protected int currentFrame;
+        protected int lastFrameTime;
+        protected FilePath sheetPath;
 
         internal Image sheet;
 
-        private Palette palette;
-        private List<Texture2D> paletteSwaps;
+        protected Palette palette;
 
         /// <summary>
         /// Gets or sets the direction in which to play the sprite animation.
@@ -121,7 +114,6 @@ namespace MegaMan.Common
             this.Height = height;
             this.Width = width;
             frames = new List<SpriteFrame>();
-            paletteSwaps = new List<Texture2D>();
 
             this.currentFrame = 0;
             this.lastFrameTime = 0;
@@ -149,7 +141,6 @@ namespace MegaMan.Common
             this.AnimDirection = copy.AnimDirection;
             this.AnimStyle = copy.AnimStyle;
             this.Layer = copy.Layer;
-            this.texture = copy.texture;
             this.Reversed = copy.Reversed;
             if (copy.SheetPath != null)
             {
@@ -157,34 +148,9 @@ namespace MegaMan.Common
             }
             this.sheet = copy.sheet;
             this.PaletteName = copy.PaletteName;
-            this.paletteSwaps = copy.paletteSwaps;
         }
 
-        public void SetTexture(GraphicsDevice device, string sheetPath)
-        {
-            StreamReader sr = new StreamReader(sheetPath);
-            this.texture = Texture2D.FromStream(device, sr.BaseStream);
-
-            if (this.sheet == null)
-            {
-                this.sheet = Image.FromFile(sheetPath);
-            }
-
-            VerifyPaletteSwaps(device);
-        }
-
-        private void VerifyPaletteSwaps(GraphicsDevice device)
-        {
-            if (PaletteName != null && this.palette == null)
-            {
-                this.palette = Palette.Get(PaletteName);
-            }
-
-            if (this.palette != null && this.paletteSwaps.Count == 0)
-            {
-                this.paletteSwaps = this.palette.GenerateSwappedTextures((Bitmap)this.sheet, device);
-            }
-        }
+        protected abstract void VerifyPaletteSwaps();
 
         public SpriteFrame this[int index]
         {
@@ -235,59 +201,6 @@ namespace MegaMan.Common
                 this.TickFrame();
                 while (this.frames[currentFrame].Duration == 0) this.TickFrame();
             }
-        }
-
-        /// <summary>
-        /// Draws the sprite on the specified Graphics surface at the specified position. Remember that the HotSpot is used as a position offset.
-        /// </summary>
-        /// <param name="graphics">The graphics surface on which to draw the sprite.</param>
-        /// <param name="posX">The x-coordinate at which to draw the sprite.</param>
-        /// <param name="posY">The y-coordinate at which to draw the sprite.</param>
-        public void Draw(Graphics graphics, float positionX, float positionY) 
-        {
-            Draw(graphics, positionX, positionY, (img) => { return img; });
-        }
-
-        public void Draw(Graphics graphics, float positionX, float positionY, Func<Image, Image> transform)
-        {
-            if (!Visible || frames.Count == 0) return;
-            if (this.frames[currentFrame].Image == null)
-            {
-                graphics.FillRectangle(Brushes.Black, positionX, positionY, this.Width, this.Height);
-                return;
-            }
-
-            bool horiz = this.HorizontalFlip;
-            if (this.Reversed) 
-                horiz = !horiz;
-            this.frames[currentFrame].Draw(graphics, positionX - this.HotSpot.X, positionY - this.HotSpot.Y, horiz, this.VerticalFlip, transform);
-        }
-
-        public void DrawXna(SpriteBatch batch, XnaColor color, float positionX, float positionY)
-        {
-            if (!Visible || frames.Count == 0 || batch == null || this.texture == null) return;
-
-            SpriteEffects effect = SpriteEffects.None;
-            if (HorizontalFlip ^ this.Reversed) effect = SpriteEffects.FlipHorizontally;
-            if (VerticalFlip) effect |= SpriteEffects.FlipVertically;
-
-            int hx = (HorizontalFlip ^ this.Reversed) ? this.Width - this.HotSpot.X : this.HotSpot.X;
-            int hy = VerticalFlip ? this.Height - this.HotSpot.Y : this.HotSpot.Y;
-            
-            // check palette swap
-            var drawTexture = this.texture;
-            VerifyPaletteSwaps(batch.GraphicsDevice);
-            if (this.palette != null && this.paletteSwaps.Count > this.palette.CurrentIndex)
-            {
-                drawTexture = this.paletteSwaps[this.palette.CurrentIndex];
-            }
-
-            batch.Draw(drawTexture,
-                new XnaRectangle((int)(positionX),
-                    (int)(positionY), this.Width, this.Height),
-                new XnaRectangle(this[currentFrame].SheetLocation.X, this[currentFrame].SheetLocation.Y, this[currentFrame].SheetLocation.Width, this[currentFrame].SheetLocation.Height),
-                color, 0,
-                new Vector2(hx, hy), effect, 0);
         }
 
         private bool tickable;
@@ -389,27 +302,8 @@ namespace MegaMan.Common
             }
         }
 
-        public static readonly Sprite Empty = new Sprite(0, 0);
-
-        public static Sprite FromXml(XElement element, string basePath)
+        internal static void LoadXml(Sprite sprite, XElement element, Image tilesheet)
         {
-            XAttribute tileattr = element.RequireAttribute("tilesheet");
-            Sprite sprite;
-
-            string sheetPath = Path.Combine(basePath, tileattr.Value);
-            Image tilesheet = Image.FromFile(sheetPath);
-            sprite = FromXml(element, tilesheet);
-            sprite.sheetPath = FilePath.FromRelative(tileattr.Value, basePath);
-            return sprite;
-        }
-
-        public static Sprite FromXml(XElement element, Image tilesheet)
-        {
-            int width = element.GetInteger("width");
-            int height = element.GetInteger("height");
-
-            Sprite sprite = new Sprite(width, height) {sheet = tilesheet};
-
             XAttribute nameAttr = element.Attribute("name");
             if (nameAttr != null) sprite.Name = nameAttr.Value;
 
@@ -465,8 +359,6 @@ namespace MegaMan.Common
             {
                 sprite.AddFrame(tilesheet, 0, 0, 0);
             }
-
-            return sprite;
         }
 
         public void WriteTo(XmlTextWriter writer)
@@ -601,36 +493,6 @@ namespace MegaMan.Common
             {
                 g.DrawImage(Image, new DrawRectangle(0, 0, SheetLocation.Width, SheetLocation.Height), SheetLocation.X, SheetLocation.Y, SheetLocation.Width, SheetLocation.Height, GraphicsUnit.Pixel);
             }
-        }
-
-        public void Draw(Graphics g, float positionX, float positionY, bool hflip, bool vflip) 
-        {
-            Draw(g, positionX, positionY, hflip, vflip, img => img);
-        }
-
-        public void Draw(Graphics g, float positionX, float positionY, bool hflip, bool vflip, Func<Image,Image> transform) 
-        {
-            if (hflip)
-            {
-                this.Image.RotateFlip(RotateFlipType.RotateNoneFlipX);
-            }
-
-            if (vflip) 
-            {
-                this.Image.RotateFlip(RotateFlipType.RotateNoneFlipY);
-            }
-
-            if (this.cutTile == null) 
-                g.FillRectangle(Brushes.Black, positionX, positionY, this.SheetLocation.Width, this.SheetLocation.Height);
-            else
-                g.DrawImage(transform(this.cutTile), positionX, positionY, cutTile.Width, cutTile.Height);
-
-            if (hflip) 
-                this.Image.RotateFlip(RotateFlipType.RotateNoneFlipX);
-
-            if (vflip) 
-                this.Image.RotateFlip(RotateFlipType.RotateNoneFlipY);
-            
         }
     }
 

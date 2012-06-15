@@ -174,7 +174,7 @@ namespace MegaMan.Common
         public void Draw(Microsoft.Xna.Framework.Graphics.SpriteBatch batch, Microsoft.Xna.Framework.Color color, float posX, float posY)
         {
             if (Sprite != null) 
-                Sprite.DrawXna(batch, color, (int)posX, (int)posY);
+                Sprite.Draw(batch, color, (int)posX, (int)posY);
         }
     }
 }
